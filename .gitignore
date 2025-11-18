@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Data directories
+user_data/
+user_ratings/
+output/
+backup/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Keep directory structure but ignore contents
+!user_data/.gitkeep
+!user_ratings/.gitkeep
+!output/.gitkeep
+!backup/.gitkeep
