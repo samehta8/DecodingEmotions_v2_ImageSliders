@@ -6,9 +6,12 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Global connection cache
 _gsheets_connection = None
+_gspread_client = None
 
 def get_gsheets_connection():
     """
@@ -30,6 +33,49 @@ def get_gsheets_connection():
     return _gsheets_connection
 
 
+def get_gspread_client():
+    """
+    Get or create a cached gspread client directly from secrets.
+    This is used for advanced operations like append_row.
+
+    Returns:
+        gspread.Client object or None if connection fails
+    """
+    global _gspread_client
+
+    if _gspread_client is None:
+        try:
+            # Get credentials from secrets
+            credentials_dict = dict(st.secrets["connections"]["gsheets"])
+
+            # Remove non-credential fields
+            credentials_dict.pop("spreadsheet", None)
+
+            # Define the required scopes
+            scopes = [
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+
+            # Create credentials
+            credentials = Credentials.from_service_account_info(
+                credentials_dict,
+                scopes=scopes
+            )
+
+            # Create gspread client
+            _gspread_client = gspread.authorize(credentials)
+            print("[INFO] gspread client created successfully")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to create gspread client: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    return _gspread_client
+
+
 def append_rating_to_gsheets(rating_data, worksheet="ratings"):
     """
     Append a single rating row to Google Sheets using true append (no overwrite).
@@ -42,18 +88,17 @@ def append_rating_to_gsheets(rating_data, worksheet="ratings"):
         True if successful, False otherwise
     """
     try:
-        conn = get_gsheets_connection()
-        if conn is None:
-            print("[WARNING] No Google Sheets connection available")
+        # Get the gspread client for advanced operations
+        gspread_client = get_gspread_client()
+        if gspread_client is None:
+            print("[WARNING] No gspread client available")
             return False
 
         # Add timestamp
         rating_data_with_timestamp = rating_data.copy()
         rating_data_with_timestamp['timestamp'] = datetime.now().isoformat()
 
-        # Get the underlying gspread client
-        # The connection object has _instance which contains the gspread client
-        gspread_client = conn._instance._client
+        # Get spreadsheet URL from secrets
         spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
 
         # Open the spreadsheet
@@ -178,18 +223,17 @@ def append_user_to_gsheets(user_data, worksheet="users"):
         True if successful, False otherwise
     """
     try:
-        conn = get_gsheets_connection()
-        if conn is None:
-            print("[WARNING] No Google Sheets connection available")
+        # Get the gspread client for advanced operations
+        gspread_client = get_gspread_client()
+        if gspread_client is None:
+            print("[WARNING] No gspread client available")
             return False
 
         # Add timestamp
         user_data_with_timestamp = user_data.copy()
         user_data_with_timestamp['timestamp'] = datetime.now().isoformat()
 
-        # Get the underlying gspread client
-        # The connection object has _instance which contains the gspread client
-        gspread_client = conn._instance._client
+        # Get spreadsheet URL from secrets
         spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
 
         # Open the spreadsheet
