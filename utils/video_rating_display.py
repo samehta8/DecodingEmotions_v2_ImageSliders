@@ -4,7 +4,6 @@ Used by both main videoplayer and familiarization screens.
 """
 import streamlit as st
 import os
-import matplotlib.pyplot as plt
 
 
 def display_video_rating_interface(
@@ -84,7 +83,12 @@ def display_video_rating_interface(
             row = metadata[metadata['id'] == action_id]
             if not row.empty:
                 try:
+                    # Lazy imports to avoid binary conflicts on Streamlit Cloud
+                    import matplotlib
+                    matplotlib.use('Agg')
+                    import matplotlib.pyplot as plt
                     import mplsoccer
+
                     pitch = mplsoccer.Pitch(pitch_type="statsbomb", pitch_color="grass")
                     fig, ax = pitch.draw(figsize=(6, 4))
 

@@ -1,9 +1,10 @@
 streamlit>=1.28.0
 pandas>=2.0.0
 pyyaml>=6.0
-duckdb>=0.9.0
-matplotlib>=3.7.0
 st-gsheets-connection
 google-api-python-client>=2.100.0
-# mplsoccer and opencv-python-headless removed due to binary conflicts on Streamlit Cloud
-# Only needed if display_pitch: true in config.yaml
+# Removed to prevent segmentation faults on Streamlit Cloud:
+# - matplotlib (only needed if display_pitch: true)
+# - mplsoccer (only needed if display_pitch: true)
+# - opencv-python-headless (only needed if display_pitch: true)
+# - duckdb (only needed if using .duckdb metadata files instead of .csv)

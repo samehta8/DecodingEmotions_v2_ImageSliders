@@ -8,9 +8,6 @@ import streamlit.components.v1 as components
 import os
 import pandas as pd
 import base64
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 from utils.config_loader import load_rating_scales
 from utils.video_rating_display import display_video_rating_interface

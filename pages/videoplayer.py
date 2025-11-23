@@ -6,13 +6,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 import pandas as pd
-import duckdb
 import random
 import base64
 from io import BytesIO
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 from utils.config_loader import load_rating_scales
 from utils.data_persistence import save_rating, get_rated_videos_for_user
@@ -307,7 +303,8 @@ def initialize_video_player(config):
 
             # Detect file type and load metadata accordingly
             if metadata_path.endswith('.duckdb'):
-                # Load from DuckDB
+                # Load from DuckDB (lazy import to avoid binary conflicts on Streamlit Cloud)
+                import duckdb
                 conn = duckdb.connect(metadata_path, read_only=True)
                 event_id_str = ', '.join(f"'{event_id}'" for event_id in event_ids)
                 query = f"SELECT * FROM events WHERE id IN ({event_id_str})"
