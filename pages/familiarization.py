@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 from utils.config_loader import load_rating_scales
 from utils.video_rating_display import display_video_rating_interface
+from utils.gdrive_manager import get_all_video_filenames, get_video_path
 
 def display_video_with_mode(video_file_path, playback_mode='loop'):
     """
@@ -131,35 +132,72 @@ def initialize_familiarization(config):
         if scale.get('required_to_proceed', True)
     ]
 
-    # Get familiarization video path from config
-    familiarization_path = config['paths'].get('familiarization_video_path', 'videos_familiarization')
+    # Get video source from config
+    video_source = config['paths'].get('video_source', 'local')
 
-    # Get all video files from familiarization folder
-    try:
-        all_videos = [f for f in os.listdir(familiarization_path) if f.lower().endswith('.mp4')]
-        # Sort to ensure consistent order for all users
-        all_videos.sort()
-        print(f"[INFO] Found {len(all_videos)} familiarization videos in {familiarization_path}")
-    except FileNotFoundError:
-        st.error(f"Familiarization video directory not found: {familiarization_path}")
-        print(f"[ERROR] Directory not found: {familiarization_path}")
-        print(f"[INFO] Current working directory: {os.getcwd()}")
-        all_videos = []
-    except Exception as e:
-        st.error(f"Error loading familiarization videos: {e}")
-        print(f"[ERROR] Error loading videos from {familiarization_path}: {e}")
-        all_videos = []
+    # Get all video files based on source
+    if video_source == 'gdrive':
+        # Get videos from Google Drive
+        try:
+            folder_id = st.secrets["gdrive"]["familiarization_folder_id"]
+            all_videos = get_all_video_filenames(folder_id)
+            # Sort to ensure consistent order for all users
+            all_videos.sort()
+            print(f"[INFO] Found {len(all_videos)} familiarization videos from Google Drive")
+            # Store folder_id for later use
+            st.session_state.familiarization_gdrive_folder_id = folder_id
+            st.session_state.familiarization_video_source = 'gdrive'
+        except Exception as e:
+            st.error(f"Failed to load familiarization videos from Google Drive: {e}")
+            print(f"[ERROR] Google Drive error: {e}")
+            all_videos = []
+    else:
+        # Get videos from local filesystem
+        familiarization_path = config['paths'].get('familiarization_video_path', 'videos_familiarization')
+        try:
+            all_videos = [f for f in os.listdir(familiarization_path) if f.lower().endswith('.mp4')]
+            # Sort to ensure consistent order for all users
+            all_videos.sort()
+            print(f"[INFO] Found {len(all_videos)} familiarization videos in {familiarization_path}")
+            st.session_state.familiarization_path = familiarization_path
+            st.session_state.familiarization_video_source = 'local'
+        except FileNotFoundError:
+            st.error(f"Familiarization video directory not found: {familiarization_path}")
+            print(f"[ERROR] Directory not found: {familiarization_path}")
+            print(f"[INFO] Current working directory: {os.getcwd()}")
+            all_videos = []
+        except Exception as e:
+            st.error(f"Error loading familiarization videos: {e}")
+            print(f"[ERROR] Error loading videos from {familiarization_path}: {e}")
+            all_videos = []
 
     # Store in session state
     st.session_state.familiarization_videos = all_videos
     st.session_state.familiarization_video_index = 0
-    st.session_state.familiarization_path = familiarization_path
     st.session_state.familiarization_initialized = True
 
 def display_familiarization_interface(video_filename, config):
     """Display the familiarization rating interface."""
-    familiarization_path = st.session_state.familiarization_path
     rating_scales = st.session_state.rating_scales
+    video_source = st.session_state.get('familiarization_video_source', 'local')
+
+    # Get video path based on source
+    if video_source == 'gdrive':
+        # For Google Drive, download the video and get temp path
+        folder_id = st.session_state.familiarization_gdrive_folder_id
+        video_file_path = get_video_path(video_filename, folder_id)
+
+        if not video_file_path:
+            st.error(f"Failed to load familiarization video from Google Drive: {video_filename}")
+            return {}
+
+        # For Google Drive, pass the parent directory of the temp file
+        familiarization_path = os.path.dirname(video_file_path)
+        # Override filename to just the basename
+        video_filename = os.path.basename(video_file_path)
+    else:
+        # For local filesystem
+        familiarization_path = st.session_state.familiarization_path
 
     # Define header content as a function
     def show_familiarization_header():
