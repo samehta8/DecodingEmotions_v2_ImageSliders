@@ -1,10 +1,12 @@
 streamlit>=1.28.0
-pandas>=2.0.0
+pandas>=2.0.0,<2.3.0
 pyyaml>=6.0
 st-gsheets-connection
+gspread>=5.0.0
 google-api-python-client>=2.100.0
-# Removed to prevent segmentation faults on Streamlit Cloud:
+# Removed to prevent binary conflicts on Streamlit Cloud:
 # - matplotlib (only needed if display_pitch: true)
 # - mplsoccer (only needed if display_pitch: true)
 # - opencv-python-headless (only needed if display_pitch: true)
+# - gspread-pandas (unused - was causing DuckDB conflicts)
 # - duckdb (only needed if using .duckdb metadata files instead of .csv)
