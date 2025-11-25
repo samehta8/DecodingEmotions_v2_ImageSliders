@@ -144,7 +144,7 @@ def _stratified_sample_recursive(df, strat_config, target_count, level):
 
     return selected_ids
 
-def display_video_with_mode(video_file_path, playback_mode='loop'):
+def display_video_with_mode(video_file_path, playback_mode='loop', video_width=None, enable_auto_advance=False):
     """
     Display video with specified playback mode.
 
@@ -153,6 +153,8 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
     - playback_mode: 'loop' or 'once'
         - 'loop': Autoplay, loop enabled, controls visible
         - 'once': Autoplay, no loop, no controls (plays once only)
+    - video_width: Width of video in pixels (for centered display) or percentage string
+    - enable_auto_advance: If True, trigger Streamlit rerun when video ends
     """
     if not os.path.exists(video_file_path):
         st.error(f"Video file not found: {video_file_path}")
@@ -160,7 +162,13 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
 
     if playback_mode == 'loop':
         # Loop mode: autoplay with controls and looping
-        st.video(video_file_path, autoplay=True, loop=True)
+        if video_width:
+            # Centered with specified width
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.video(video_file_path, autoplay=True, loop=True)
+        else:
+            st.video(video_file_path, autoplay=True, loop=True)
 
     elif playback_mode == 'once':
         # Once mode: autoplay without controls, no loop, plays once only
@@ -169,14 +177,37 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
             video_bytes = f.read()
         video_base64 = base64.b64encode(video_bytes).decode()
 
+        # Determine width style
+        if video_width:
+            if isinstance(video_width, str) and '%' in video_width:
+                width_style = f"width: {video_width};"
+            else:
+                width_style = f"width: {video_width}px;"
+        else:
+            width_style = "max-width: 100%;"
+
+        # JavaScript to detect video end and trigger Streamlit rerun
+        auto_advance_script = ""
+        if enable_auto_advance:
+            auto_advance_script = """
+            video.addEventListener('ended', function() {
+                console.log('Video ended, triggering rerun...');
+                // Set a flag in sessionStorage to indicate video ended
+                window.parent.sessionStorage.setItem('video_ended', 'true');
+                // Trigger Streamlit to rerun by sending a custom event
+                window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'ended'}, '*');
+            });
+            """
+
         # Create HTML5 video player without controls
         # Use object-fit: contain to ensure video is never cropped
         video_html = f"""
-        <div style="width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: transparent;">
             <video
+                id="main-video"
                 autoplay
                 muted
-                style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;"
+                style="{width_style} max-height: 85vh; height: auto; object-fit: contain;"
                 onended="this.pause();"
             >
                 <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
@@ -191,8 +222,12 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
                 display: none !important;
             }}
         </style>
+        <script>
+            const video = document.getElementById('main-video');
+            {auto_advance_script}
+        </script>
         """
-        components.html(video_html, height=600)
+        components.html(video_html, height=700)
 
     else:
         # Fallback to default
@@ -227,8 +262,249 @@ def show():
     current_video = videos[current_video_index]
     action_id = os.path.splitext(current_video)[0]
 
-    # Display the rating interface
-    display_rating_interface(action_id, current_video, config)
+    # Get display mode from config
+    display_mode = config['settings'].get('display_mode', 'combined')
+
+    if display_mode == 'separate':
+        # Two-screen flow: video screen -> rating screen
+        # Initialize screen state for current video if not exists
+        if 'current_screen' not in st.session_state:
+            st.session_state.current_screen = 'video'
+
+        # Check if video ended (from JavaScript event)
+        if st.session_state.current_screen == 'video':
+            # Auto-advance to rating screen after a short delay
+            # Using a button for manual advance as fallback
+            display_video_screen(action_id, current_video, config)
+        else:
+            # Display rating screen
+            display_rating_screen(action_id, current_video, config)
+    else:
+        # Combined mode: video and ratings side-by-side (original behavior)
+        display_rating_interface(action_id, current_video, config)
+
+def display_video_screen(action_id, video_filename, config):
+    """Display only the video (centered, no ratings)."""
+    video_path = st.session_state.video_path
+    video_playback_mode = config['settings'].get('video_playback_mode', 'once')
+    video_width = config['settings'].get('video_width', 800)
+
+    # Display video info
+    current_index = st.session_state.get('current_video_index', 0) + 1
+    total_videos = len(st.session_state.videos_to_rate)
+    st.info(f"🎬 **Video {current_index} of {total_videos}**")
+
+    # Display centered video
+    video_file = os.path.join(video_path, video_filename)
+    display_video_with_mode(video_file, video_playback_mode, video_width, enable_auto_advance=False)
+
+    st.markdown("---")
+
+    # Manual advance button (auto-advance happens via timer)
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col2:
+        if st.button("Continue to Rating ▶️", use_container_width=True, type="primary", key="advance_to_rating"):
+            st.session_state.current_screen = 'rating'
+            st.rerun()
+
+    # Add automatic advance after video duration
+    # Using a timer to auto-advance after video plays
+    if video_playback_mode == 'once':
+        # Add a small delay then auto-advance
+        import time
+        # Get video duration (if available from metadata) or use fixed delay
+        # For now, using JavaScript with a timer
+        st.markdown("""
+        <script>
+        setTimeout(function() {
+            // Auto-advance to rating screen after video should be done
+            // This is a fallback in case JS event doesn't work
+            console.log('Timer expired, video should be done');
+        }, 15000);  // 15 seconds default
+        </script>
+        """, unsafe_allow_html=True)
+
+
+def display_rating_screen(action_id, video_filename, config):
+    """Display only the rating scales (no video)."""
+    user = st.session_state.user
+    rating_scales = st.session_state.rating_scales
+
+    # Display rating info
+    current_index = st.session_state.get('current_video_index', 0) + 1
+    total_videos = len(st.session_state.videos_to_rate)
+    st.info(f"📊 **Rating {current_index} of {total_videos}** - Please rate the video you just watched")
+
+    st.markdown("---")
+
+    # Display rating scales
+    scale_values = {}
+
+    for scale_config in rating_scales:
+        scale_type = scale_config.get('type', 'discrete')
+        title = scale_config.get('title', 'Scale')
+        label_low = scale_config.get('label_low', '')
+        label_high = scale_config.get('label_high', '')
+        required = scale_config.get('required_to_proceed', True)
+
+        # Check if both labels are empty (saves vertical space)
+        labels_empty = not label_low and not label_high
+
+        if labels_empty:
+            # Side-by-side layout: title on left, scale on right
+            col_title, col_scale = st.columns([1, 3])
+
+            with col_title:
+                st.markdown(f"**{title}** {'*(required)*' if required else ''}")
+
+            with col_scale:
+                # Generate unique key for this scale
+                unique_key = f"scale_{action_id}_{title}"
+
+                if scale_type == 'discrete':
+                    values = scale_config.get('values', [1, 2, 3, 4, 5, 6, 7])
+                    selected = st.pills(
+                        label=title,
+                        options=values,
+                        key=unique_key,
+                        label_visibility="collapsed",
+                        selection_mode="single"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'slider':
+                    slider_min = scale_config.get('slider_min', 0)
+                    slider_max = scale_config.get('slider_max', 100)
+                    initial_state = scale_config.get('initial_state', 'low')
+
+                    # Calculate initial value based on initial_state
+                    if initial_state == 'low':
+                        initial_value = float(slider_min)
+                    elif initial_state == 'high':
+                        initial_value = float(slider_max)
+                    else:  # 'center' or any other value defaults to center
+                        initial_value = float(slider_min + slider_max) / 2
+
+                    selected = st.slider(
+                        label=title,
+                        min_value=float(slider_min),
+                        max_value=float(slider_max),
+                        value=initial_value,
+                        key=unique_key,
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'text':
+                    selected = st.text_input(
+                        label=title,
+                        key=unique_key,
+                        placeholder="Enter your response...",
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected if selected else None
+
+        else:
+            # Stacked layout with labels: title on top, labels on sides of scale
+            st.markdown(f"**{title}** {'*(required)*' if required else ''}")
+
+            col_low, col_scale, col_high = st.columns([1, 3, 1])
+
+            with col_low:
+                st.markdown(f"*{label_low}*")
+
+            with col_scale:
+                # Generate unique key for this scale
+                unique_key = f"scale_{action_id}_{title}"
+
+                if scale_type == 'discrete':
+                    values = scale_config.get('values', [1, 2, 3, 4, 5, 6, 7])
+                    selected = st.pills(
+                        label=title,
+                        options=values,
+                        key=unique_key,
+                        label_visibility="collapsed",
+                        selection_mode="single"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'slider':
+                    slider_min = scale_config.get('slider_min', 0)
+                    slider_max = scale_config.get('slider_max', 100)
+                    initial_state = scale_config.get('initial_state', 'low')
+
+                    # Calculate initial value based on initial_state
+                    if initial_state == 'low':
+                        initial_value = float(slider_min)
+                    elif initial_state == 'high':
+                        initial_value = float(slider_max)
+                    else:  # 'center' or any other value defaults to center
+                        initial_value = float(slider_min + slider_max) / 2
+
+                    selected = st.slider(
+                        label=title,
+                        min_value=float(slider_min),
+                        max_value=float(slider_max),
+                        value=initial_value,
+                        key=unique_key,
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'text':
+                    selected = st.text_input(
+                        label=title,
+                        key=unique_key,
+                        placeholder="Enter your response...",
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected if selected else None
+
+            with col_high:
+                st.markdown(f"*{label_high}*")
+
+        st.markdown("")  # Spacing
+
+    st.markdown("---")
+
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        if st.button("◀️ Back to Video", use_container_width=True):
+            st.session_state.current_screen = 'video'
+            st.rerun()
+
+    with col3:
+        if st.button("Submit Rating ▶️", use_container_width=True, type="primary"):
+            # Validate ratings
+            validation_errors = _validate_ratings(scale_values)
+
+            if validation_errors:
+                st.error("⚠️ Please complete the required ratings:")
+                for error in validation_errors:
+                    st.warning(error)
+                st.stop()
+
+            # Save rating
+            if save_rating(user.user_id, action_id, scale_values):
+                st.success("✅ Rating saved successfully!")
+
+                # Move to next video
+                st.session_state.current_video_index += 1
+                st.session_state.current_screen = 'video'  # Reset to video screen for next video
+                st.session_state.confirm_back = False
+
+                # Small delay to show success message
+                import time
+                time.sleep(0.5)
+
+                # Clear and move to next video
+                st.rerun()
+            else:
+                st.error("❌ Failed to save rating. Please try again.")
+
 
 def initialize_video_player(config):
     """Initialize video player state - load videos, metadata, and rating scales."""

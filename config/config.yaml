@@ -28,6 +28,15 @@ settings:
   video_playback_mode: "once"  # "loop" = video repeats, "once" = plays once and cannot be restarted
   enable_familiarization: true  # Set to false to skip all familiarization screens (pre-famil, famil, post-famil)
 
+  # Two-screen mode: separates video playback and rating screens
+  # "combined" = video and ratings side-by-side (classic mode)
+  # "separate" = video screen first, then rating screen after video ends
+  display_mode: "separate"
+
+  # Video player size (used in separate mode when video is centered)
+  # width in pixels (e.g., 800, 1024, 1280) or percentage string (e.g., "80%")
+  video_width: 800
+
   # Video selection and stratification settings
   number_of_videos: null  # Maximum videos to show per session (null = show all available)
 
