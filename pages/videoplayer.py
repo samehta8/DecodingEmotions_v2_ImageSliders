@@ -286,21 +286,31 @@ def show():
 def display_video_screen(action_id, video_filename, config):
     """Display only the video (centered, no ratings)."""
     video_path = st.session_state.video_path
-    video_playback_mode = config['settings'].get('video_playback_mode', 'once')
-    video_width = config['settings'].get('video_width', 800)
+    metadata = st.session_state.metadata
+    rating_scales = st.session_state.rating_scales
 
     # Display video info
     current_index = st.session_state.get('current_video_index', 0) + 1
     total_videos = len(st.session_state.videos_to_rate)
-    st.info(f"🎬 **Video {current_index} of {total_videos}**")
+    st.info(f"🎬 **Video {current_index} of {total_videos}**. Watch the video carefully.")
 
-    # Display centered video
-    video_file = os.path.join(video_path, video_filename)
-    display_video_with_mode(video_file, video_playback_mode, video_width, enable_auto_advance=False)
+    # Use shared display function in video-only mode
+    display_video_rating_interface(
+        video_filename=video_filename,
+        video_path=video_path,
+        config=config,
+        rating_scales=rating_scales,
+        key_prefix="scale_",
+        action_id=action_id,
+        metadata=metadata,
+        header_content=None,
+        display_video_func=display_video_with_mode,
+        display_mode='video_only'
+    )
 
     st.markdown("---")
 
-    # Manual advance button (auto-advance happens via timer)
+    # Manual advance button
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col2:
@@ -308,163 +318,33 @@ def display_video_screen(action_id, video_filename, config):
             st.session_state.current_screen = 'rating'
             st.rerun()
 
-    # Add automatic advance after video duration
-    # Using a timer to auto-advance after video plays
-    if video_playback_mode == 'once':
-        # Add a small delay then auto-advance
-        import time
-        # Get video duration (if available from metadata) or use fixed delay
-        # For now, using JavaScript with a timer
-        st.markdown("""
-        <script>
-        setTimeout(function() {
-            // Auto-advance to rating screen after video should be done
-            // This is a fallback in case JS event doesn't work
-            console.log('Timer expired, video should be done');
-        }, 15000);  // 15 seconds default
-        </script>
-        """, unsafe_allow_html=True)
-
 
 def display_rating_screen(action_id, video_filename, config):
     """Display only the rating scales (no video)."""
     user = st.session_state.user
     rating_scales = st.session_state.rating_scales
+    video_path = st.session_state.video_path
 
     # Display rating info
     current_index = st.session_state.get('current_video_index', 0) + 1
     total_videos = len(st.session_state.videos_to_rate)
-    st.info(f"📊 **Rating {current_index} of {total_videos}** - Please rate the video you just watched")
+    st.info(f"📊 **Rating {current_index} of {total_videos}**. Please rate the video you just watched.")
 
     st.markdown("---")
 
-    # Display rating scales
-    scale_values = {}
-
-    for scale_config in rating_scales:
-        scale_type = scale_config.get('type', 'discrete')
-        title = scale_config.get('title', 'Scale')
-        label_low = scale_config.get('label_low', '')
-        label_high = scale_config.get('label_high', '')
-        required = scale_config.get('required_to_proceed', True)
-
-        # Check if both labels are empty (saves vertical space)
-        labels_empty = not label_low and not label_high
-
-        if labels_empty:
-            # Side-by-side layout: title on left, scale on right
-            col_title, col_scale = st.columns([1, 3])
-
-            with col_title:
-                st.markdown(f"**{title}** {'*(required)*' if required else ''}")
-
-            with col_scale:
-                # Generate unique key for this scale
-                unique_key = f"scale_{action_id}_{title}"
-
-                if scale_type == 'discrete':
-                    values = scale_config.get('values', [1, 2, 3, 4, 5, 6, 7])
-                    selected = st.pills(
-                        label=title,
-                        options=values,
-                        key=unique_key,
-                        label_visibility="collapsed",
-                        selection_mode="single"
-                    )
-                    scale_values[title] = selected
-
-                elif scale_type == 'slider':
-                    slider_min = scale_config.get('slider_min', 0)
-                    slider_max = scale_config.get('slider_max', 100)
-                    initial_state = scale_config.get('initial_state', 'low')
-
-                    # Calculate initial value based on initial_state
-                    if initial_state == 'low':
-                        initial_value = float(slider_min)
-                    elif initial_state == 'high':
-                        initial_value = float(slider_max)
-                    else:  # 'center' or any other value defaults to center
-                        initial_value = float(slider_min + slider_max) / 2
-
-                    selected = st.slider(
-                        label=title,
-                        min_value=float(slider_min),
-                        max_value=float(slider_max),
-                        value=initial_value,
-                        key=unique_key,
-                        label_visibility="collapsed"
-                    )
-                    scale_values[title] = selected
-
-                elif scale_type == 'text':
-                    selected = st.text_input(
-                        label=title,
-                        key=unique_key,
-                        placeholder="Enter your response...",
-                        label_visibility="collapsed"
-                    )
-                    scale_values[title] = selected if selected else None
-
-        else:
-            # Stacked layout with labels: title on top, labels on sides of scale
-            st.markdown(f"**{title}** {'*(required)*' if required else ''}")
-
-            col_low, col_scale, col_high = st.columns([1, 3, 1])
-
-            with col_low:
-                st.markdown(f"*{label_low}*")
-
-            with col_scale:
-                # Generate unique key for this scale
-                unique_key = f"scale_{action_id}_{title}"
-
-                if scale_type == 'discrete':
-                    values = scale_config.get('values', [1, 2, 3, 4, 5, 6, 7])
-                    selected = st.pills(
-                        label=title,
-                        options=values,
-                        key=unique_key,
-                        label_visibility="collapsed",
-                        selection_mode="single"
-                    )
-                    scale_values[title] = selected
-
-                elif scale_type == 'slider':
-                    slider_min = scale_config.get('slider_min', 0)
-                    slider_max = scale_config.get('slider_max', 100)
-                    initial_state = scale_config.get('initial_state', 'low')
-
-                    # Calculate initial value based on initial_state
-                    if initial_state == 'low':
-                        initial_value = float(slider_min)
-                    elif initial_state == 'high':
-                        initial_value = float(slider_max)
-                    else:  # 'center' or any other value defaults to center
-                        initial_value = float(slider_min + slider_max) / 2
-
-                    selected = st.slider(
-                        label=title,
-                        min_value=float(slider_min),
-                        max_value=float(slider_max),
-                        value=initial_value,
-                        key=unique_key,
-                        label_visibility="collapsed"
-                    )
-                    scale_values[title] = selected
-
-                elif scale_type == 'text':
-                    selected = st.text_input(
-                        label=title,
-                        key=unique_key,
-                        placeholder="Enter your response...",
-                        label_visibility="collapsed"
-                    )
-                    scale_values[title] = selected if selected else None
-
-            with col_high:
-                st.markdown(f"*{label_high}*")
-
-        st.markdown("")  # Spacing
+    # Use shared display function in rating-only mode
+    scale_values = display_video_rating_interface(
+        video_filename=video_filename,
+        video_path=video_path,
+        config=config,
+        rating_scales=rating_scales,
+        key_prefix="scale_",
+        action_id=action_id,
+        metadata=None,
+        header_content=None,
+        display_video_func=display_video_with_mode,
+        display_mode='rating_only'
+    )
 
     st.markdown("---")
 

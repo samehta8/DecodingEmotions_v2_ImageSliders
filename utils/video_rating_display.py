@@ -6,6 +6,196 @@ import streamlit as st
 import os
 
 
+def display_video_only(video_filename, video_path, config, display_video_func, action_id=None, metadata=None):
+    """
+    Display only the video (centered, no ratings).
+
+    Parameters:
+    - video_filename: Name of the video file to display
+    - video_path: Path to the directory containing the video
+    - config: Configuration dictionary
+    - display_video_func: Function to display video (should accept file_path and playback_mode)
+    - action_id: Optional action ID for metadata lookup
+    - metadata: Optional metadata DataFrame
+    """
+    video_playback_mode = config['settings'].get('video_playback_mode', 'once')
+    video_width = config['settings'].get('video_width', 800)
+    display_metadata = config['settings'].get('display_metadata', True)
+
+    # Top metadata bar (if enabled and metadata available)
+    if display_metadata and metadata is not None and not metadata.empty and action_id:
+        row = metadata[metadata['id'] == action_id]
+        if not row.empty:
+            # Get metadata fields to display from config
+            metadata_to_show = config['settings'].get('metadata_to_show', [])
+
+            if metadata_to_show:
+                # Create columns dynamically based on number of metadata fields
+                cols = st.columns(len(metadata_to_show))
+
+                # Display each metadata field
+                for idx, field_config in enumerate(metadata_to_show):
+                    label = field_config.get('label', '')
+                    column = field_config.get('column', '')
+
+                    # Check if column exists in metadata
+                    if column and column in row.columns:
+                        with cols[idx]:
+                            st.metric(label, row[column].values[0])
+
+        st.markdown("---")
+
+    # Display centered video
+    video_file = os.path.join(video_path, video_filename)
+    if display_video_func:
+        display_video_func(video_file, video_playback_mode, video_width, enable_auto_advance=False)
+    else:
+        st.video(video_file, autoplay=True, loop=(video_playback_mode == 'loop'))
+
+
+def display_rating_scales_only(video_filename, rating_scales, key_prefix, action_id=None):
+    """
+    Display only the rating scales (no video).
+
+    Parameters:
+    - video_filename: Name of the video file (for unique keys)
+    - rating_scales: List of rating scale configurations
+    - key_prefix: Prefix for Streamlit widget keys
+    - action_id: Optional action ID for metadata lookup
+
+    Returns:
+    - scale_values: Dictionary of {scale_title: selected_value}
+    """
+    scale_values = {}
+
+    for scale_config in rating_scales:
+        scale_type = scale_config.get('type', 'discrete')
+        title = scale_config.get('title', 'Scale')
+        label_low = scale_config.get('label_low', '')
+        label_high = scale_config.get('label_high', '')
+        required = scale_config.get('required_to_proceed', True)
+
+        # Check if both labels are empty (saves vertical space)
+        labels_empty = not label_low and not label_high
+
+        if labels_empty:
+            # Side-by-side layout: title on left, scale on right
+            col_title, col_scale = st.columns([1, 3])
+
+            with col_title:
+                st.markdown(f"**{title}** {'*(required)*' if required else ''}")
+
+            with col_scale:
+                # Generate unique key for this scale
+                unique_key = f"{key_prefix}{video_filename}_{title}" if not action_id else f"{key_prefix}{action_id}_{title}"
+
+                if scale_type == 'discrete':
+                    values = scale_config.get('values', [1, 2, 3, 4, 5, 6, 7])
+                    selected = st.pills(
+                        label=title,
+                        options=values,
+                        key=unique_key,
+                        label_visibility="collapsed",
+                        selection_mode="single"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'slider':
+                    slider_min = scale_config.get('slider_min', 0)
+                    slider_max = scale_config.get('slider_max', 100)
+                    initial_state = scale_config.get('initial_state', 'low')
+
+                    # Calculate initial value based on initial_state
+                    if initial_state == 'low':
+                        initial_value = float(slider_min)
+                    elif initial_state == 'high':
+                        initial_value = float(slider_max)
+                    else:  # 'center' or any other value defaults to center
+                        initial_value = float(slider_min + slider_max) / 2
+
+                    selected = st.slider(
+                        label=title,
+                        min_value=float(slider_min),
+                        max_value=float(slider_max),
+                        value=initial_value,
+                        key=unique_key,
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'text':
+                    selected = st.text_input(
+                        label=title,
+                        key=unique_key,
+                        placeholder="Enter your response...",
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected if selected else None
+
+        else:
+            # Stacked layout with labels: title on top, labels on sides of scale
+            st.markdown(f"**{title}** {'*(required)*' if required else ''}")
+
+            col_low, col_scale, col_high = st.columns([1, 3, 1])
+
+            with col_low:
+                st.markdown(f"*{label_low}*")
+
+            with col_scale:
+                # Generate unique key for this scale
+                unique_key = f"{key_prefix}{video_filename}_{title}" if not action_id else f"{key_prefix}{action_id}_{title}"
+
+                if scale_type == 'discrete':
+                    values = scale_config.get('values', [1, 2, 3, 4, 5, 6, 7])
+                    selected = st.pills(
+                        label=title,
+                        options=values,
+                        key=unique_key,
+                        label_visibility="collapsed",
+                        selection_mode="single"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'slider':
+                    slider_min = scale_config.get('slider_min', 0)
+                    slider_max = scale_config.get('slider_max', 100)
+                    initial_state = scale_config.get('initial_state', 'low')
+
+                    # Calculate initial value based on initial_state
+                    if initial_state == 'low':
+                        initial_value = float(slider_min)
+                    elif initial_state == 'high':
+                        initial_value = float(slider_max)
+                    else:  # 'center' or any other value defaults to center
+                        initial_value = float(slider_min + slider_max) / 2
+
+                    selected = st.slider(
+                        label=title,
+                        min_value=float(slider_min),
+                        max_value=float(slider_max),
+                        value=initial_value,
+                        key=unique_key,
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected
+
+                elif scale_type == 'text':
+                    selected = st.text_input(
+                        label=title,
+                        key=unique_key,
+                        placeholder="Enter your response...",
+                        label_visibility="collapsed"
+                    )
+                    scale_values[title] = selected if selected else None
+
+            with col_high:
+                st.markdown(f"*{label_high}*")
+
+        st.markdown("")  # Spacing
+
+    return scale_values
+
+
 def display_video_rating_interface(
     video_filename,
     video_path,
@@ -15,7 +205,8 @@ def display_video_rating_interface(
     action_id=None,
     metadata=None,
     header_content=None,
-    display_video_func=None
+    display_video_func=None,
+    display_mode='combined'
 ):
     """
     Display the video rating interface with configurable options.
@@ -30,18 +221,29 @@ def display_video_rating_interface(
     - metadata: Optional metadata DataFrame
     - header_content: Optional content to display at the top (e.g., familiarization header)
     - display_video_func: Function to display video (should accept file_path and playback_mode)
+    - display_mode: 'combined' for side-by-side, 'video_only' for video screen, 'rating_only' for rating screen
 
     Returns:
     - scale_values: Dictionary of {scale_title: selected_value}
     """
-    # Display options from config
-    display_metadata = config['settings'].get('display_metadata', True)
-    display_pitch = config['settings'].get('display_pitch', True)
-    video_playback_mode = config['settings'].get('video_playback_mode', 'loop')
-
     # Display optional header content (e.g., familiarization info)
     if header_content:
         header_content()
+
+    # Handle separate display modes
+    if display_mode == 'video_only':
+        # Display only the video
+        display_video_only(video_filename, video_path, config, display_video_func, action_id, metadata)
+        return {}  # No ratings collected yet
+
+    elif display_mode == 'rating_only':
+        # Display only the rating scales
+        return display_rating_scales_only(video_filename, rating_scales, key_prefix, action_id)
+
+    # Combined mode (original behavior)
+    display_metadata = config['settings'].get('display_metadata', True)
+    display_pitch = config['settings'].get('display_pitch', True)
+    video_playback_mode = config['settings'].get('video_playback_mode', 'loop')
 
     # Top metadata bar (if enabled and metadata available)
     if display_metadata and metadata is not None and not metadata.empty and action_id:

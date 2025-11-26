@@ -13,7 +13,7 @@ from utils.config_loader import load_rating_scales
 from utils.video_rating_display import display_video_rating_interface
 from utils.gdrive_manager import get_all_video_filenames, get_video_path
 
-def display_video_with_mode(video_file_path, playback_mode='loop'):
+def display_video_with_mode(video_file_path, playback_mode='loop', video_width=None, enable_auto_advance=False):
     """
     Display video with specified playback mode.
 
@@ -22,6 +22,8 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
     - playback_mode: 'loop' or 'once'
         - 'loop': Autoplay, loop enabled, controls visible
         - 'once': Autoplay, no loop, no controls (plays once only)
+    - video_width: Width of video in pixels (for centered display) or percentage string
+    - enable_auto_advance: If True, trigger Streamlit rerun when video ends
     """
     if not os.path.exists(video_file_path):
         st.error(f"Video file not found: {video_file_path}")
@@ -29,7 +31,13 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
 
     if playback_mode == 'loop':
         # Loop mode: autoplay with controls and looping
-        st.video(video_file_path, autoplay=True, loop=True)
+        if video_width:
+            # Centered with specified width
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.video(video_file_path, autoplay=True, loop=True)
+        else:
+            st.video(video_file_path, autoplay=True, loop=True)
 
     elif playback_mode == 'once':
         # Once mode: autoplay without controls, no loop, plays once only
@@ -38,14 +46,37 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
             video_bytes = f.read()
         video_base64 = base64.b64encode(video_bytes).decode()
 
+        # Determine width style
+        if video_width:
+            if isinstance(video_width, str) and '%' in video_width:
+                width_style = f"width: {video_width};"
+            else:
+                width_style = f"width: {video_width}px;"
+        else:
+            width_style = "max-width: 100%;"
+
+        # JavaScript to detect video end and trigger Streamlit rerun
+        auto_advance_script = ""
+        if enable_auto_advance:
+            auto_advance_script = """
+            video.addEventListener('ended', function() {
+                console.log('Video ended, triggering rerun...');
+                // Set a flag in sessionStorage to indicate video ended
+                window.parent.sessionStorage.setItem('video_ended', 'true');
+                // Trigger Streamlit to rerun by sending a custom event
+                window.parent.postMessage({type: 'streamlit:setComponentValue', value: 'ended'}, '*');
+            });
+            """
+
         # Create HTML5 video player without controls
         # Use object-fit: contain to ensure video is never cropped
         video_html = f"""
-        <div style="width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: transparent;">
             <video
+                id="main-video"
                 autoplay
                 muted
-                style="max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;"
+                style="{width_style} max-height: 85vh; height: auto; object-fit: contain;"
                 onended="this.pause();"
             >
                 <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
@@ -60,8 +91,12 @@ def display_video_with_mode(video_file_path, playback_mode='loop'):
                 display: none !important;
             }}
         </style>
+        <script>
+            const video = document.getElementById('main-video');
+            {auto_advance_script}
+        </script>
         """
-        components.html(video_html, height=600)
+        components.html(video_html, height=700)
 
     else:
         # Fallback to default
@@ -193,8 +228,24 @@ def show():
 
     current_video = videos[current_video_index]
 
-    # Display the rating interface (without saving)
-    display_familiarization_interface(current_video, config)
+    # Get display mode from config
+    display_mode = config['settings'].get('display_mode', 'combined')
+
+    if display_mode == 'separate':
+        # Sequential flow: video screen -> rating screen
+        # Initialize screen state for current video if not exists
+        if 'familiarization_current_screen' not in st.session_state:
+            st.session_state.familiarization_current_screen = 'video'
+
+        if st.session_state.familiarization_current_screen == 'video':
+            # Display video screen
+            display_familiarization_video_screen(current_video, config)
+        else:
+            # Display rating screen
+            display_familiarization_rating_screen(current_video, config)
+    else:
+        # Combined mode: video and ratings side-by-side (original behavior)
+        display_familiarization_interface(current_video, config)
 
 def initialize_familiarization(config):
     """Initialize familiarization state - load videos and rating scales."""
@@ -233,8 +284,100 @@ def initialize_familiarization(config):
     st.session_state.familiarization_video_index = 0
     st.session_state.familiarization_initialized = True
 
+def display_familiarization_video_screen(video_filename, config):
+    """Display only the video for familiarization (no ratings)."""
+    familiarization_path = st.session_state.familiarization_path
+    rating_scales = st.session_state.rating_scales
+
+    # Display video info
+    current_index = st.session_state.familiarization_video_index
+    total_videos = len(st.session_state.familiarization_videos)
+    st.info(f"🎯 **Familiarization Trial - Video {current_index + 1} of {total_videos}**. Watch the video carefully.")
+
+    # Define header content as a function
+    def show_familiarization_header():
+        pass  # Already shown above
+
+    # Use shared display function in video-only mode
+    display_video_rating_interface(
+        video_filename=video_filename,
+        video_path=familiarization_path,
+        config=config,
+        rating_scales=rating_scales,
+        key_prefix="famil_scale_",
+        action_id=None,
+        metadata=None,
+        header_content=show_familiarization_header,
+        display_video_func=display_video_with_mode,
+        display_mode='video_only'
+    )
+
+    st.markdown("---")
+
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col2:
+        if st.button("Continue to Rating ▶️", use_container_width=True, type="primary", key="famil_advance_to_rating"):
+            st.session_state.familiarization_current_screen = 'rating'
+            st.rerun()
+
+
+def display_familiarization_rating_screen(video_filename, config):
+    """Display only the rating scales for familiarization (no video)."""
+    rating_scales = st.session_state.rating_scales
+
+    # Display rating info
+    current_index = st.session_state.familiarization_video_index
+    total_videos = len(st.session_state.familiarization_videos)
+    st.info(f"📊 **Familiarization Trial - Rating {current_index + 1} of {total_videos}**. Please rate the video you just watched. *These ratings will not be saved.*")
+
+    st.markdown("---")
+
+    # Use shared display function in rating-only mode
+    scale_values = display_video_rating_interface(
+        video_filename=video_filename,
+        video_path=st.session_state.familiarization_path,
+        config=config,
+        rating_scales=rating_scales,
+        key_prefix="famil_scale_",
+        action_id=None,
+        metadata=None,
+        header_content=None,
+        display_video_func=display_video_with_mode,
+        display_mode='rating_only'
+    )
+
+    st.markdown("---")
+
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        if st.button("◀️ Back to Video", use_container_width=True):
+            st.session_state.familiarization_current_screen = 'video'
+            st.rerun()
+
+    with col3:
+        if st.button("Submit Rating ▶️", use_container_width=True, type="primary"):
+            # Validate ratings
+            validation_errors = _validate_familiarization_ratings(scale_values)
+
+            if validation_errors:
+                st.error("⚠️ Please complete the required ratings:")
+                for error in validation_errors:
+                    st.warning(error)
+                st.stop()
+
+            # Don't save rating - just move to next video
+            st.session_state.familiarization_video_index += 1
+            st.session_state.familiarization_current_screen = 'video'  # Reset to video screen for next video
+            st.session_state.confirm_back_famil = False
+            st.rerun()
+
+
 def display_familiarization_interface(video_filename, config):
-    """Display the familiarization rating interface."""
+    """Display the familiarization rating interface (combined mode)."""
     rating_scales = st.session_state.rating_scales
 
     # Get video path from local filesystem
