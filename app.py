@@ -50,7 +50,7 @@ def init_session_state():
         st.session_state.user = User()
 
     if 'page' not in st.session_state:
-        st.session_state.page = 'welcome'
+        st.session_state.page = 'login'
 
     if 'config' not in st.session_state:
         try:

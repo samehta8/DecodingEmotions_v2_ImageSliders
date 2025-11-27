@@ -5,9 +5,35 @@ import streamlit as st
 from utils.data_persistence import user_exists
 
 def show():
-    """Display the login screen."""
-    st.title("🔐 Login")
+    """Display the login screen with welcome message."""
+    # Welcome message at the top
+    st.markdown("""
+    ## Welcome!
 
+    Thanks for participating in this study! If you have participated before, please enter your user ID below to directly 
+    proceed to the rating task.  
+    
+    If this is your first time, you will be forwarded to receive more information about the study and will need to provide your consent 
+    before proceeding.
+    
+    Afterwards, you will complete a brief demographic questionnaire. The information given in the questionnaire will not be linked 
+    to your identity and is very important for putting the study results into context. 
+                
+    After the questionnaire, you will have the opportunity to familiarize yourself with the rating interface through some practice trials 
+    before proceeding to the main rating task.
+
+    ### Important Notes:
+
+    - Please complete ratings in a quiet environment without distractions
+    - All data is anonymized using a generated user ID
+    - You can take breaks between videos - your progress is saved
+
+    ---
+    """)
+
+    st.markdown("")  # Spacing
+
+    # Login section
     st.markdown("### Have you participated in this study before?")
 
     # Radio button for Yes/No
@@ -50,12 +76,7 @@ def show():
     st.markdown("")
     col1, col2, col3 = st.columns([1, 1, 1])
 
-    with col1:
-        if st.button("◀️ Back", use_container_width=True):
-            st.session_state.page = 'welcome'
-            st.rerun()
-
-    with col3:
+    with col2:
         if st.button("Next ▶️", use_container_width=True, type="primary"):
             # Validation
             if participated == "Yes, I have participated before":

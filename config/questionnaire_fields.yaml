@@ -52,6 +52,13 @@
   required_to_proceed: true
 
 - active: true
+  type: "text"
+  field_name: "living_in"
+  title: "I currently live in"
+  hint_text: "Enter a country name"
+  required_to_proceed: true
+
+- active: true
   type: "multiple_choice"
   field_name: "watch_olympics"
   title: "During an Olympic year, I generally spend around ___ hours watching the Olympics:"

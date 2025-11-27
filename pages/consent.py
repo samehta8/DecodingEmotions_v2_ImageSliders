@@ -11,54 +11,32 @@ def show():
 
     # Participant Information
     st.markdown("""
-    ## Study Information
-
     Thank you for your interest in participating in this research study. Before you proceed,
     please read the following information carefully.
 
-    ### Purpose of the Study
-
-    This study aims to collect subjective ratings of video content to better understand
+    **This study** aims to collect subjective ratings of video content to better understand
     emotional responses and perceptions. Your participation will contribute to research
-    in the field of emotion recognition and human perception.
+    in the field of emotion recognition and nonverbal behavior.
 
-    ### What Will Happen During the Study
+    You will complete a brief demographic questionnaire and then  watch a series of short video clips. 
+    After viewing each clip, you will be asked to rate the video using provided rating scales. 
+    The entire study should take approximately 20-30 minutes.
 
-    - You will complete a brief demographic questionnaire
-    - You will watch a series of short video clips
-    - You will rate each video using provided rating scales
-    - The entire study should take approximately 20-30 minutes
-
-    ### Data Usage and Privacy
-
-    **Your data will be:**
+    **Your data** will be
     - Processed completely **anonymously** for research purposes
     - Used only for academic research and scientific publications
     - **Not shared with third parties** outside the research team
     - Stored securely with access restricted to authorized researchers
 
-    **Your identity:**
-    - Your responses will be linked only to an anonymous user ID
-    - Your name and email will be stored separately from your ratings
-    - No personally identifiable information will be included in published results
+    Your responses will be linked only to an anonymous user ID and no personally identifiable
+     information will be included in published results
 
-    ### Your Rights
+    **Your participation** is completely voluntary. You may **terminate** your participation at any time without
+     giving a reason and without any negative consequences. You may contact the study administration at any time if you have **questions**.
+    You may be **contacted via the email address** you provided
+     if we have follow-up questions about your responses
 
-    - **Voluntary Participation**: Your participation is completely voluntary
-    - **Right to Withdraw**: You may terminate your participation at any time without
-      giving a reason and without any negative consequences
-    - **Questions**: You may contact the study administration at any time if you have questions
-    - **Follow-up Contact**: You may be contacted via the email address you provided
-      if we have follow-up questions about your responses
-
-    ### Risks and Benefits
-
-    - **Risks**: There are no known risks associated with participation in this study
-    - **Benefits**: Your participation will contribute to scientific understanding in this field
-
-    ### Contact Information
-
-    If you have any questions about this study, please contact the study administration
+    If you have any **questions** about this study, please contact the study administration
     at the email address provided to you.
     """)
 
