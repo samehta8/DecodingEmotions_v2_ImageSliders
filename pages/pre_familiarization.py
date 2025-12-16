@@ -25,17 +25,24 @@ def show():
     """)
 
     st.markdown("""        
-    For each clip in the survey, please indicate whether the athlete won or lost, and rate the emotions you observe. You can pick multiple emotions (as many as you need). Each emotion is rated independently on a 0 to 100 scale. Each of these emotions has to be rated separately.
+    For each clip in the survey, please indicate whether the athlete won or lost, and rate the emotions you observe. 
+    
+    **You can pick multiple emotions (as many as you need). Each emotion is rated independently on a 0 to 100 scale. Each of these emotions has to be rated separately, they do not need to add up to 100.**
     """)
     
     st.warning("""
-    Neutral emotion is used when you do not see any specific emotions at all. It is used when the other mentioned emotions are absent. 
-
-    Thus, Neutral would be 0 if other emotions are present, and 100 if no other emotions are visible or present according to you. 
+    **Neutral emotion is used when you do not see any specific emotion on the athlete. **
+    It can be used with other emotions but cannot be 100. 
+    E.g. Surprised 30 and Neutral 20 is acceptable, but SurprisED 30 and Neutral 100 is not. 
+    **WHILE NEUTRAL CAN BE COMBINED WITH OTHER EMOTIONS, DO NOT SELECT NEUTRAL 100 IF OTHER EMOTIONS ARE PRESENT**
+    
+    Thus, Neutral would be 0 if other emotions are present, and 100 if no other emotions are visible or present according to you. Any score in between can be combined with other emotions.
     """)
 
     st.markdown("""
-    Now, if you have understood these instructions, we will have 3 practice clips, followed by a message, after which your survey will begin. Please press start below, to begin your practice trial.
+    Now, if you have understood these instructions, proceed to the **3 practice clips, followed by a message, after which your survey will begin.** 
+    
+    Please press start below, to begin your practice trial.
     """)
 
     st.markdown("---")
