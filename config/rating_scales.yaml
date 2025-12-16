@@ -126,7 +126,7 @@ scales:
   label_high: "Absence of other emotions"
   slider_min: 0
   slider_max: 100
-  initial_state: "center"
+  initial_state: "low"
   required_to_proceed: false
   group: "emotions"
 
