@@ -1,3 +1,4 @@
+# Updated: $(date)
 """
 Video player page - Main rating interface.
 Displays videos with customizable rating scales and optional metadata/pitch visualization.
