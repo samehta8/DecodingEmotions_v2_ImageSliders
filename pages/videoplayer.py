@@ -172,7 +172,7 @@ def display_video_with_mode(video_file_path, playback_mode='loop', video_width=N
             st.video(video_file_path, autoplay=True, loop=True)
 
     elif playback_mode == 'once':
-        # Once mode: autoplay without controls, no loop, plays once only
+        # Once mode: Play for 2 seconds, then stop and show black first frame
         # Read video file and encode as base64
         with open(video_file_path, 'rb') as f:
             video_bytes = f.read()
@@ -182,6 +182,46 @@ def display_video_with_mode(video_file_path, playback_mode='loop', video_width=N
         if video_width:
             if isinstance(video_width, str) and '%' in video_width:
                 width_style = f"width: {video_width};"
+            else:
+                width_style = f"width: {video_width}px;"
+        else:
+            width_style = "max-width: 100%;"
+
+        # Create HTML5 video player that plays for 2 seconds then resets to frame 0
+        video_html = f"""
+        <div style="width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: transparent;">
+            <video
+                id="main-video"
+                autoplay
+                muted
+                style="{width_style} max-height: 85vh; height: auto; object-fit: contain;"
+            >
+                <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <style>
+            video::-webkit-media-controls {{
+                display: none !important;
+            }}
+            video::-webkit-media-controls-enclosure {{
+                display: none !important;
+            }}
+        </style>
+        <script>
+            const video = document.getElementById('main-video');
+            
+            // Play for 2 seconds, then pause and reset to first frame (black screen)
+            video.addEventListener('timeupdate', function() {{
+                if (video.currentTime >= 2.0) {{
+                    video.pause();
+                    video.currentTime = 0;
+                }}
+            }});
+        </script>
+        """
+        components.html(video_html, height=700)
+
             else:
                 width_style = f"width: {video_width}px;"
         else:
